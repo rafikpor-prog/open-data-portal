@@ -1,0 +1,95 @@
+name: Build Radio Driver 3.0.4 APK
+
+on:
+  push:
+    branches:
+      - radio-driver-build
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reconstruct Radio Driver 3.0.4 sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat radio-driver-304/src*.txt | tr -d '\n\r' | base64 -d > RadioDriver-3.0.4-ci.tar.xz
+          echo "2710b391ca03df6bdd2c080cab508069ef15c8897188b81a94c6d15355572327  RadioDriver-3.0.4-ci.tar.xz" | sha256sum -c -
+          mkdir -p radio-driver-project
+          tar -xJf RadioDriver-3.0.4-ci.tar.xz -C radio-driver-project
+          test -f radio-driver-project/build.gradle.kts
+          test -f radio-driver-project/app/build.gradle.kts
+          test -f radio-driver-project/app/src/main/AndroidManifest.xml
+          grep -q 'versionCode = 3000400' radio-driver-project/app/build.gradle.kts
+          grep -q 'versionName = "3.0.4"' radio-driver-project/app/build.gradle.kts
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Build installable debug APK
+        working-directory: radio-driver-project
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify APK and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="radio-driver-project/app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" | tee radio-driver-3.0.4-signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | tee radio-driver-3.0.4-info.txt
+          grep -q "package: name='pl.radiodriver.app'" radio-driver-3.0.4-info.txt
+          grep -q "versionCode='3000400'" radio-driver-3.0.4-info.txt
+          grep -q "versionName='3.0.4'" radio-driver-3.0.4-info.txt
+          sha256sum "$APK" | tee RadioDriver-3.0.4-ci-debug.apk.sha256
+
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          cp radio-driver-project/app/build/outputs/apk/debug/app-debug.apk RadioDriver-3.0.4-ci-debug.apk
+          cp "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" apksigner-36.0.0.jar
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: RadioDriver-3.0.4-ci
+          path: |
+            RadioDriver-3.0.4-ci-debug.apk
+            RadioDriver-3.0.4-ci-debug.apk.sha256
+            radio-driver-3.0.4-info.txt
+            radio-driver-3.0.4-signature.txt
+            apksigner-36.0.0.jar
+          if-no-files-found: error
+          retention-days: 7
