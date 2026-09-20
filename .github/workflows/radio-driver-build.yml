@@ -36,6 +36,14 @@ jobs:
           test -f radio-driver-project/app/build.gradle.kts
           test -f radio-driver-project/app/src/main/AndroidManifest.xml
 
+      - name: Apply verified compiler fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp radio-driver-patches/Theme.kt radio-driver-project/app/src/main/java/pl/radiodriver/app/ui/Theme.kt
+          cp radio-driver-patches/AlarmScheduler.kt radio-driver-project/app/src/main/java/pl/radiodriver/app/schedule/AlarmScheduler.kt
+          cp radio-driver-patches/SleepTimer.kt radio-driver-project/app/src/main/java/pl/radiodriver/app/timer/SleepTimer.kt
+
       - name: Pin Android 16 compatible AndroidX versions
         shell: bash
         run: |
