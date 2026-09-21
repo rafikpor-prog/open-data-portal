@@ -1,4 +1,4 @@
-name: Build Radio Driver 3.0.7 Direct Playback Hotfix APK
+name: Build Radio Driver 3.0.8 Safe Playback Hotfix APK
 
 on:
   push:
@@ -199,17 +199,30 @@ jobs:
           grep -q 'playQueueFromIntent' app/src/main/java/pl/radiodriver/app/playback/RadioPlaybackService.kt
           grep -q 'media3-exoplayer-hls' app/build.gradle.kts
 
+      - name: Apply 3.0.8 safe playback hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d radio-driver-308.patch.gz.b64 | gzip -d > /tmp/radio-driver-308.patch
+          cd radio-driver-project
+          patch -p1 < /tmp/radio-driver-308.patch
+          grep -q 'versionCode = 3000800' app/build.gradle.kts
+          grep -q 'versionName = "3.0.8"' app/build.gradle.kts
+          ! grep -q 'startForegroundService(appContext' app/src/main/java/pl/radiodriver/app/playback/PlaybackController.kt
+          grep -q 'return super.onStartCommand' app/src/main/java/pl/radiodriver/app/playback/RadioPlaybackService.kt
+          ! grep -q 'PlaybackController(this).also' app/src/main/java/pl/radiodriver/app/MainActivity.kt
+
       - name: Snapshot exact 3.0.7 sources
         shell: bash
         run: |
           set -euo pipefail
-          tar -cJf RadioDriver-3.0.7-exact-source.tar.xz -C radio-driver-project .
+          tar -cJf RadioDriver-3.0.8-exact-source.tar.xz -C radio-driver-project .
 
       - name: Upload exact source snapshot
         uses: actions/upload-artifact@v4
         with:
-          name: RadioDriver-3.0.7-exact-source
-          path: RadioDriver-3.0.7-exact-source.tar.xz
+          name: RadioDriver-3.0.8-exact-source
+          path: RadioDriver-3.0.8-exact-source.tar.xz
           if-no-files-found: error
           retention-days: 1
 
@@ -242,28 +255,28 @@ jobs:
         run: |
           set -euo pipefail
           APK="radio-driver-project/app/build/outputs/apk/debug/app-debug.apk"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" | tee radio-driver-3.0.7-signature.txt
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | tee radio-driver-3.0.7-info.txt
-          grep -q "package: name='pl.radiodriver.app'" radio-driver-3.0.7-info.txt
-          grep -q "versionCode='3000700'" radio-driver-3.0.7-info.txt
-          grep -q "versionName='3.0.7'" radio-driver-3.0.7-info.txt
-          sha256sum "$APK" | tee RadioDriver-3.0.7-ci-debug.apk.sha256
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" | tee radio-driver-3.0.8-signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | tee radio-driver-3.0.8-info.txt
+          grep -q "package: name='pl.radiodriver.app'" radio-driver-3.0.8-info.txt
+          grep -q "versionCode='3000800'" radio-driver-3.0.8-info.txt
+          grep -q "versionName='3.0.8'" radio-driver-3.0.8-info.txt
+          sha256sum "$APK" | tee RadioDriver-3.0.8-ci-debug.apk.sha256
 
       - name: Prepare artifact
         shell: bash
         run: |
-          cp radio-driver-project/app/build/outputs/apk/debug/app-debug.apk RadioDriver-3.0.7-ci-debug.apk
+          cp radio-driver-project/app/build/outputs/apk/debug/app-debug.apk RadioDriver-3.0.8-ci-debug.apk
           cp "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" apksigner-36.0.0.jar
 
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: RadioDriver-3.0.7-ci
+          name: RadioDriver-3.0.8-ci
           path: |
-            RadioDriver-3.0.7-ci-debug.apk
-            RadioDriver-3.0.7-ci-debug.apk.sha256
-            radio-driver-3.0.7-info.txt
-            radio-driver-3.0.7-signature.txt
+            RadioDriver-3.0.8-ci-debug.apk
+            RadioDriver-3.0.8-ci-debug.apk.sha256
+            radio-driver-3.0.8-info.txt
+            radio-driver-3.0.8-signature.txt
             apksigner-36.0.0.jar
           if-no-files-found: error
           retention-days: 7
