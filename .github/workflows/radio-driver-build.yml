@@ -199,6 +199,20 @@ jobs:
           grep -q 'playQueueFromIntent' app/src/main/java/pl/radiodriver/app/playback/RadioPlaybackService.kt
           grep -q 'media3-exoplayer-hls' app/build.gradle.kts
 
+      - name: Snapshot exact 3.0.7 sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -cJf RadioDriver-3.0.7-exact-source.tar.xz -C radio-driver-project .
+
+      - name: Upload exact source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: RadioDriver-3.0.7-exact-source
+          path: RadioDriver-3.0.7-exact-source.tar.xz
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
